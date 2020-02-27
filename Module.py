@@ -104,7 +104,7 @@ def portfolio_volatility(weights, covmat):
 """
     Plots the 2-Asset Efficient Frontier
     """
-def plot_EF2(n_points, er, cov, style = ".-", title= 'Efficient Frontier'):
+def plot_EF2(n_points, er, cov, style = ".-", title= 'Two Asset Efficient Frontier'):
     
     if er.shape[0] != 2 or er.shape[0] != 2:
         raise ValueError("plot_EF can plot only two asset frontiers")
@@ -151,7 +151,7 @@ def optimal_weights(n_points, er, cov):
     weights = [minimize_vol(target_return, er, cov) for target_return in target_rs]
     return weights
 
-def plot_ef_multi(n_points, er, cov):
+def plot_ef_multi(n_points, er, cov, style = ".-"):
     """
     Plots the multi-asset efficient frontier
     """
@@ -162,7 +162,7 @@ def plot_ef_multi(n_points, er, cov):
         "Returns": rets, 
         "Volatility": vols
     })
-    return ef.plot.line(x="Volatility", y="Returns", style='.-')
+    return ef.plot.line(x="Volatility", y="Returns", style='.-', title= 'Multi-Asset Efficient Frontier')
 
 
 import numpy as np
