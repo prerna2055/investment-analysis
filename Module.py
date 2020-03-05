@@ -88,83 +88,6 @@ def sharpe_ratio(r, riskfree_rate, periods_per_year):
     ann_ex_ret = annualize_return(excess_ret, periods_per_year)
     ann_vol = annualize_vol(r, periods_per_year)
     return ann_ex_ret/ann_vol
-
-def portfolio_return(weights, returns):
-    """
-    Weights -> returns
-    """
-    return weights.T @ returns
-
-def portfolio_volatility(weights, covmat):
-    """
-    Weights -> Vol
-    """
-    return (weights.T @ covmat @ weights)**0.5
-
-"""
-    Plots the 2-Asset Efficient Frontier
-    """
-def plot_EF2(n_points, er, cov, style = ".-", title= 'Two Asset Efficient Frontier'):
-    
-    if er.shape[0] != 2 or er.shape[0] != 2:
-        raise ValueError("plot_EF can plot only two asset frontiers")
-    weights = [np.array([w, 1-w]) for w in np.linspace(0, 1, n_points)]
-    Rets = [portfolio_return(w,er) for w in weights]
-    Vols = [portfolio_volatility(w, cov) for w in weights]
-    ef = pd.DataFrame({"Returns": Rets, "Volatility": Vols})
-    
-    return ef.plot.line(x = "Volatility", y = "Returns", style = style)
-
-
-
-"""
-    Plots the Multi-Asset Efficient Frontier
-    """
-
-def minimize_vol(target_return, er, cov):
-    """
-    Returns the optimal weights that achieve the target return
-    given a set of expected returns and a covariance matrix
-    """
-    n = er.shape[0]
-    init_guess = np.repeat(1/n, n)
-    bounds = ((0.0, 1.0),) * n # an N-tuple of 2-tuples!
-    # construct the constraints
-    weights_sum_to_1 = {'type': 'eq',
-                        'fun': lambda weights: np.sum(weights) - 1
-    }
-    return_is_target = {'type': 'eq',
-                        'args': (er,),
-                        'fun': lambda weights, er: target_return - portfolio_return(weights,er)
-    }
-    weights = minimize(portfolio_volatility, init_guess,
-                       args=(cov,), method='SLSQP',
-                       options={'disp': False},
-                       constraints=(weights_sum_to_1,return_is_target),
-                       bounds=bounds)
-    return weights.x
-
-def optimal_weights(n_points, er, cov):
-    """
-    """
-    target_rs = np.linspace(er.min(), er.max(), n_points)
-    weights = [minimize_vol(target_return, er, cov) for target_return in target_rs]
-    return weights
-
-def plot_ef_multi(n_points, er, cov, style = ".-"):
-    """
-    Plots the multi-asset efficient frontier
-    """
-    weights = optimal_weights(n_points, er, cov) # not yet implemented!
-    rets = [portfolio_return(w, er) for w in weights]
-    vols = [portfolio_volatility(w, cov) for w in weights]
-    ef = pd.DataFrame({
-        "Returns": rets, 
-        "Volatility": vols
-    })
-    return ef.plot.line(x="Volatility", y="Returns", style='.-', title= 'Multi-Asset Efficient Frontier')
-
-
 import numpy as np
 def var_hist(r, level=5):
     """
@@ -219,3 +142,134 @@ def cvar_hist(r, level=5):
         return -r[is_beyond].mean()
     else:
         raise TypeError("Expected r to be series or DataFrame")
+
+        
+        #Computing Portfolio Risk and Returns
+def portfolio_return(weights, returns):
+    """
+    Computes the return on a portfolio from constituent returns and weights
+    weights are a numpy array or Nx1 matrix and returns are a numpy array or Nx1 matrix
+    """
+    return weights.T @ returns
+
+def portfolio_vol(weights, covmat):
+    """
+    Computes the vol of a portfolio from a covariance matrix and constituent weights
+    weights are a numpy array or N x 1 maxtrix and covmat is an N x N matrix
+    """
+    return (weights.T @ covmat @ weights)**0.5
+
+def plot_EF2(n_points, er, cov, style = ".-", title= 'Two Asset Efficient Frontier'):
+    """
+    Plots the 2-Asset Efficient Frontier
+    """
+    if er.shape[0] != 2 or er.shape[0] != 2:
+        raise ValueError("plot_EF can plot only two asset frontiers")
+    weights = [np.array([w, 1-w]) for w in np.linspace(0, 1, n_points)]
+    Rets = [portfolio_return(w,er) for w in weights]
+    Vols = [portfolio_vol(w, cov) for w in weights]
+    ef = pd.DataFrame({"Returns": Rets, "Volatility": Vols})
+    
+    return ef.plot.line(x = "Volatility", y = "Returns", style = style)
+
+"""
+    Plots the Multi-Asset Efficient Frontier
+    """
+from scipy.optimize import minimize
+def minimize_vol(target_return, er, cov):
+    """
+    Returns the optimal weights that achieve the target return
+    given a set of expected returns and a covariance matrix
+    """
+    n = er.shape[0]
+    init_guess = np.repeat(1/n, n)
+    bounds = ((0.0, 1.0),) * n # an N-tuple of 2-tuples!
+    # construct the constraints
+    weights_sum_to_1 = {'type': 'eq',
+                        'fun': lambda weights: np.sum(weights) - 1
+    }
+    return_is_target = {'type': 'eq',
+                        'args': (er,),
+                        'fun': lambda weights, er: target_return - portfolio_return(weights,er)
+    }
+    weights = minimize(portfolio_vol, init_guess,
+                       args=(cov,), method='SLSQP',
+                       options={'disp': False},
+                       constraints=(weights_sum_to_1,return_is_target),
+                       bounds=bounds)
+    return weights.x
+
+def optimal_weights(n_points, er, cov):
+    """
+    """
+    target_rs = np.linspace(er.min(), er.max(), n_points)
+    weights = [minimize_vol(target_return, er, cov) for target_return in target_rs]
+    return weights
+
+def plot_ef_multi(n_points, er, cov, style = ".-", title= 'Multi-Asset Efficient Frontier'):
+    """
+    Plots the multi-asset efficient frontier
+    """
+    weights = optimal_weights(n_points, er, cov) # not yet implemented!
+    rets = [portfolio_return(w, er) for w in weights]
+    vols = [portfolio_vol(w, cov) for w in weights]
+    ef = pd.DataFrame({
+        "Returns": rets, 
+        "Volatility": vols
+    })
+    return ef.plot.line(x="Volatility", y="Returns", style='.-')
+
+'''
+Finding the MSR portfolio
+'''
+def msr(riskfree_rate, er, cov):
+    """
+    Returns the weights of the portfolio that gives you the maximum sharpe ratio
+    given the riskfree rate and expected returns and a covariance matrix
+    """
+    n = er.shape[0]
+    init_guess = np.repeat(1/n, n)
+    bounds = ((0.0, 1.0),) * n # an N-tuple of 2-tuples!
+    # construct the constraints
+    weights_sum_to_1 = {'type': 'eq',
+                        'fun': lambda weights: np.sum(weights) - 1
+    }
+    def neg_sharpe(weights, riskfree_rate, er, cov):
+        """
+        Returns the negative of the sharpe ratio
+        of the given portfolio
+        """
+        r = portfolio_return(weights, er)
+        vol = portfolio_vol(weights, cov)
+        return -(r - riskfree_rate)/vol
+
+    weights = minimize(neg_sharpe, init_guess,
+                       args=(riskfree_rate, er, cov), method='SLSQP',
+                       options={'disp': False},
+                       constraints=(weights_sum_to_1,),
+                       bounds=bounds)
+    return weights.x
+    
+def plot_ef(n_points,er,cov, show_cml = False, style ='.-', riskfree_rate=0):
+    '''
+    plots the multiasset frontier
+    '''
+    weights = optimal_weights(n_points,er,cov)
+    rets = [portfolio_return(w,er) for w in weights]
+    vols = [portfolio_vol(w,cov) for w in  weights]
+    ef = pd.DataFrame({
+        "Returns": rets,
+        "Volatility": vols
+    })
+    ax = ef.plot.line(x="Volatility", y = "Returns", style=style)
+    if show_cml:
+        ax.set_xlim(left = 0)
+        # get MSR
+        w_msr = msr(riskfree_rate, er, cov)
+        r_msr = portfolio_return(w_msr, er)
+        vol_msr = portfolio_vol(w_msr, cov)
+        # add CML
+        cml_x = [0, vol_msr]
+        cml_y = [riskfree_rate, r_msr]
+        ax.plot(cml_x, cml_y, color='green', marker='o', linestyle='dashed', linewidth=2, markersize=12)
+      
